@@ -1,0 +1,151 @@
+---
+title: "STAT545 Homework 04 Tidy data and joins"
+output:
+  github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This Rmarkdown file has several goals as listed below. It will be used as a cheatsheet for future data frame reshaping and data wrangling.  
+* Reorder a factor 
+* Write and read data using R
+* Improve a figure
+* Make a plotly visual
+* Implement visualization design principles
+
+
+## Import data frame and the tidyverse pacakge
+
+Gapminder data will be used in this homework, and the dataset will be explored using the "tidyverse" package. Figures will be plotted using the "ggplot2" package.
+
+```{r}
+library(gapminder)
+library(tidyverse)
+library(ggplot2)
+# use suppressMessages(library(tidyverse)) to generate a pdf file
+```
+
+## Part 1 Factor management
+### Overview
+
+This two parts has two goals. Dropping factor/levels, and reordering levels based on understanding of the dataset.
+
+### Drop Oceania
+First, let's figure out the structure of the Gapminder dataset before we drop anything out.
+
+```{r}
+str(gapminder)
+```
+
+It can be noticed that there are 142 levels in country, and 5 levels in continent. Now let's drop the continent "Oceania" out.
+
+```{r}
+gap_no_oce <- gapminder %>% 
+  filter(continent != "Oceania")
+```
+
+```{r}
+str(gap_no_oce)
+```
+
+After the Oceania has been dropped, the levels of country and continent remained unchanges. Now we want to remove all the unused levels. We could do that using either droplevels() or forcats::fct_drop(). 
+
+Let's try droplevels() first.
+
+```{r}
+gap_no_oce %>% 
+  droplevels() %>% 
+  str()
+```
+
+It can be noticed that droplevels() removed unused levels in both country and continent. Oringinally, country has 142 levels and continent has 5 levels. The chunk above removed 2 levels of country and 1 level of continent, resulting in 140 levels in country and 4 levels in continent. 
+
+```{r}
+gap_no_oce %>% 
+  mutate(continent = fct_drop(continent)) %>% 
+  str()
+```
+
+The function fct_drop() can specify levels of which factor to remove. Here I only removed unused levels in continent. Oringinally, country has 142 levels and continent has 5 levels. The chunk above only  1 level of continent, resulting in  4 levels in continent, and the levels in country remains unchanged.
+
+### Reorder the levels of continent.
+
+First, let's get a sub-dataset that only has data from the year 2002 to work with. 
+```{r}
+gap_2002 <- gapminder %>% 
+  filter(year == 2002)
+```
+
+Let's plot the gdp per capital of different continent using a boxplot, and the mean value of the gdp per capital is indicated as a statistics summary. I found this [webpage](https://stackoverflow.com/questions/50112033/how-do-i-plot-the-mean-instead-of-the-median-with-geom-boxplot) useful. 
+
+```{r}
+gap_2002 %>% 
+  ggplot(aes(x = continent, y = gdpPercap, fill=continent))+
+  geom_boxplot(fatten = NULL) +
+  stat_summary(fun.y = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
+               width = 0.75, size = 1, linetype = "solid")
+```
+
+
+To reorder the levels of continent based on the gdpPercap in decreasing. Let's try arrange() first.  
+```{r}
+gap_2002 %>% 
+  arrange(desc(gdpPercap)) %>% 
+  ggplot(aes(x = continent, y = gdpPercap, fill=continent))+
+  geom_boxplot(fatten = NULL) +
+  stat_summary(fun.y = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
+               width = 0.75, size = 1, linetype = "solid")
+```
+
+It shows that arrange() won't change the order of the continent in the figure. Now let's try fct_reorder().
+
+```{r}
+gap_2002 %>% 
+  mutate(continent = fct_reorder(continent, gdpPercap, fun = mean, .desc = TRUE)) %>% 
+  ggplot(aes(x = continent, y = gdpPercap, fill=continent))+
+  geom_boxplot(fatten = NULL) +
+  stat_summary(fun.y = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
+               width = 0.75, size = 1, linetype = "solid")
+```
+
+It shows fct_reorder() can reorder the continent by gdpPercap in decreasing order. How about using factor reordering coupled with arrange()?
+
+```{r}
+gap_2002 %>% 
+  arrange(desc(gdpPercap)) %>% 
+  mutate(continent = factor(continent, unique(continent))) %>% 
+  ggplot(aes(x = continent, y = gdpPercap, fill=continent))+
+  geom_boxplot(fatten = NULL) +
+  stat_summary(fun.y = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..),
+               width = 0.75, size = 1, linetype = "solid")
+```
+
+The above chunk also help us to reorder levels in a factor using arrange() and factor(). However, it only can reorder based on the largest value of each continent rather than the mean value. I would prefer not using this one because it is hard for us to specify the criteria of reordering. 
+
+## Part 2 File I/O
+### Overview
+This part will write a sub-dataset of Gapminder to a .csv file and then read it back in.
+
+First, let write gap_2002 onto a .csv. The gap_2002 dataset will be reordered by gdpPercap to make sure it is not ordered alphabetically. 
+
+```{r}
+gap_2002 %>% 
+  arrange(desc(gdpPercap)) %>% 
+  write_csv("gap_2002.csv")
+```
+
+Then, read the gap_2002.csv back in R.
+
+```{r}
+gap_2002_new <- read_csv("gap_2002.csv")
+head(gap_2002_new)
+```
+
+It can be notice that the dataframe that is read from the .csv file has the same order with the arranged gap_2002 dataframe, which is ordering by decreasing of gdpPercap.
+
+## Part 3 Visualization design.
+
