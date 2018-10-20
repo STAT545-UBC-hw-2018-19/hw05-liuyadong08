@@ -1,7 +1,8 @@
 ---
-title: "STAT545 Homework 04 Tidy data and joins"
+title: "STAT545 Homework 05 Factor and figure management"
 output:
-  github_document
+  html_document:
+    keep_md: true
 ---
 
 ```{r setup, include=FALSE}
@@ -148,4 +149,116 @@ head(gap_2002_new)
 It can be notice that the dataframe that is read from the .csv file has the same order with the arranged gap_2002 dataframe, which is ordering by decreasing of gdpPercap.
 
 ## Part 3 Visualization design.
+In this part, several graphs will be ploted and compared with each other. Scale of one axis will be manipulated and the font size of axis will be changed using theme(). Some of the graphs will be plotted using ggplot2, and some will be plotted using ploty.
+
+Using the Gapminder dataset, and plot the trend of gdpPercap of a few countries, and some of them have a large gdpPercap value that is greater than 40000 in the year 2007, and the others have a small gdpPercap value that is smaller thatn 1000 in the year 2007. Using the country color sheme. 
+
+First, let's get two groups of countries.
+
+```{r}
+country_large_gdp <- gapminder %>% 
+  filter(year == "2007", gdpPercap >= 40000) %>% 
+  select(country) %>% 
+  droplevels()
+country_small_gdp <- gapminder %>% 
+  filter(year == "2007", gdpPercap <= 500) %>% 
+  select(country) %>% 
+  droplevels()
+```
+
+Then let's make the plot.
+
+```{r}
+dat1 <- gapminder %>% 
+  filter(country %in% country_large_gdp$country)
+dat2 <- gapminder %>% 
+  filter(country %in% country_small_gdp$country)
+dat_all <- bind_rows(dat1, dat2)
+p_country_col <- dat_all %>% 
+  ggplot(aes(year, gdpPercap, col = country))+
+  scale_colour_manual(values = country_colors) +
+  geom_line()
+p_country_col
+```
+
+
+In the first attempt, I found that the trend of gdpPercap of countries that has low gdpPercap is not illustrative, and I think the reason is the gap bwteen the gdpPercap values of two groups is large. So let's try to log the y axis.
+
+```{r}
+p_country_col_log <- p_country_col + 
+  scale_y_log10()
+p_country_col_log
+```
+
+Compare this figure to the first one, it can be noticed that the trend of both groups are clearly shown. The graph itself is more illustrative. However, the order of the legend does not correspond the order of the lines. Let's make the legend is in order of the last gdpPercap.
+
+```{r}
+p_reorder <- dat_all %>% 
+  mutate(country=fct_reorder2(country, year, gdpPercap)) %>% 
+  ggplot(aes(year, gdpPercap, col = country))+
+  scale_colour_manual(values = country_colors) +
+  geom_line() +
+  scale_y_log10()
+p_reorder
+```
+
+It can be noticed that the order of the legend matches with the order of gdpPercap of 2007. Now let's make the text of axis x and y bigger, and give the graph a title.
+
+```{r}
+p_title <- p_reorder + 
+  labs(x = "Year",
+  y = "GDP Per Capita",
+  title = "Change of GDP Per Capita over time") +
+  theme_bw() +
+  theme(axis.text = element_text(size = 16))
+p_title
+```
+
+It can be notice that the labels in this plot is clearer than the previous ones, and the title of the graph makes it easy to understand.
+
+
+To conver the graphs to a 'plotly' plot.
+
+```{r}
+library(plotly)
+ggplotly(p_title)
+```
+
+```{r}
+ggplotly(p_reorder)
+```
+
+"plotly" plot has many advantages over the "ggplot2" plot. There are a number of functions such as downloading plot, zooming in and out, reset axes, autoscale and etc. at the top right corner of the plot. Also, it will show you the value of y and x axis when you put your cursor on the line plotted in the graph. These are two features that ggplot2 does not have. Also, though it is not shown here, "plotly" can plot a graph that is 3-D.
+
+## Part 4 Writing figures to file.
+To save the graphs in part 3 to my local disk using ggsave(). One graph will be saved in vector format, e.g. pdf, and another one will be saved in raster format, e.g. png.
+
+First, let's save the p_title as pdf.
+```{r}
+ggsave("~/Downloads/STAT545/hw05-liuyadong08/gdpPercap_title.pdf", plot = p_title, width = 20, height = 10)
+```
+
+Now let's try to save p_reorder as png without specifying the plot. 
+
+```{r}
+ggsave("~/Downloads/STAT545/hw05-liuyadong08/gdpPercap_reorder_wrong.png", width = 20, height = 10)
+```
+
+The chunk above FAILED to save the p_reorder graph since the plot argument is not specified here. It will save the graph that is in the memory of R. Let's specify the plot as p_reorder and try again.
+
+
+```{r}
+ggsave("~/Downloads/STAT545/hw05-liuyadong08/gdpPercap_reorder_correct.png", plot = p_reorder, width = 20, height = 10)
+```
+
+Last but not least, load those graphs back to the report. 
+
+![graph1](gdpPercap_title.pdf)
+
+![graph2](gdpPercap_reorder_wrong.png)
+
+![graph3](gdpPercap_reorder_correct.png)
+
+
+
 
